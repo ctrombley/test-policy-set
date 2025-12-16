@@ -2,10 +2,29 @@ name: Weekend Cleanup
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * SAT'
+    - cron: '0 0 * * *' # Runs at midnight every day
 
 jobs:
   call-delete-all-webhooks:
-    uses: hashicorp/terraform-random-1/.github/workflows/delete_all_webhooks.yaml@main
-    secrets:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch and Delete Webhooks
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Fetching webhooks for $REPO..."
+
+          HOOK_IDS=$(gh api repos/$REPO/hooks --jq '.[].id')
+
+          if [ -z "$HOOK_IDS" ]; then
+            echo "No webhooks found to delete."
+            exit 0
+          fi
+
+          for ID in $HOOK_IDS; do
+            echo "Deleting webhook ID: $ID"
+            gh api --method DELETE repos/$REPO/hooks/$ID
+          done
+
+          echo "All webhooks have been deleted."
